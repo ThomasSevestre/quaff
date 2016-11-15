@@ -34,6 +34,7 @@ class Call
                  destination=nil,
                  target_uri=nil)
     @cxn = cxn
+    @destination = destination
     setdest(destination, recv_from_this: true) if destination
     @retrans = nil
     @t1, @t2 = 0.5, 32
@@ -61,7 +62,7 @@ class Call
 
     @sip_destination = "#{uri}"
   end
-  
+
   def create_dialog msg
     if @in_dialog
       return
@@ -83,6 +84,8 @@ class Call
       else
         @routeset = msg.all_headers("Record-Route").reverse
       end
+
+      Quaff::Utils.check_route_matches_proxy(@routeset.first, @destination) if @destination
     end
 
   end
@@ -151,7 +154,7 @@ class Call
 
     found_match = false
     dialog_creating = nil
-    
+
     possible_messages.each do
       | what, this_dialog_creating |
       type = if (what.class == String) then :request else :response end
@@ -160,7 +163,7 @@ class Call
       end
 
       found_match =
-        if type == :request 
+        if type == :request
           msg.type == :request and what == msg.method
         else
           msg.type == :response and what.to_s == msg.status_code
@@ -189,7 +192,7 @@ class Call
       if @in_dialog
         @has_To_tag = true
         @last_To = msg.header("To")
-      end    
+      end
     end
 
     if dialog_creating

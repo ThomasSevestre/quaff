@@ -1,3 +1,4 @@
+require 'resolv'
 require 'socket'
 require 'system/getifaddrs'
 
@@ -29,6 +30,32 @@ end
 
 def Utils.paramhash_to_str params
   params.collect {|k, v| if (v == true) then ";#{k}" else ";#{k}=#{v}" end}.join("")
+end
+
+def Utils.check_route_matches_proxy route, proxy
+  regexp = /<sip:(.*?)@(.*?):(.*?);(.*?)>/i
+  proxy_address = proxy.instance_variable_get(:@ip)
+  proxy_port = proxy.instance_variable_get(:@port)
+  if route =~ regexp
+    route_address = $2
+    route_port = $3
+  end
+
+  route_ip = []
+  Resolv.each_address(route_address) do |address|
+    route_ip << address
+  end
+
+  proxy_ip = []
+  Resolv.each_address(proxy_address) do |address|
+    proxy_ip << address
+  end
+
+  if (route_ip & proxy_ip).empty?
+    raise "Error: Address in top route header '#{route_address}' does not match proxy address '#{proxy_address}'"
+  elsif (route_port.to_s != proxy_port.to_s)
+    raise "Error: Port in top route header '#{route_port}' does not match proxy port '#{proxy_port}'"
+  end
 end
 
 end
