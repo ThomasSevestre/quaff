@@ -85,7 +85,7 @@ class Call
         @routeset = msg.all_headers("Record-Route").reverse
       end
 
-      Quaff::Utils.check_route_matches_proxy(@routeset.first, @destination) if @destination
+      Quaff::Utils.check_route_matches_destination(@routeset.first, @destination) if @destination
     end
 
   end
