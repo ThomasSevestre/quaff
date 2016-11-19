@@ -18,7 +18,6 @@ module Quaff
     end
 
     def Auth.gen_response auth_pairs, username, passwd, method, sip_uri, cnonce, cnonce_cnt
-      puts "username: #{username} realm: #{auth_pairs["realm"]} passwd: #{passwd} \n"
       a1 = username + ":" + auth_pairs["realm"] + ":" + passwd
       a2 = method + ":" + sip_uri
       ha1 = Digest::MD5::hexdigest(a1)
@@ -95,7 +94,6 @@ module Quaff
       auth_pairs = {}
       auth_hdr.sub("Digest ", "").split(",") .each do |pair|
         key, value = pair.split "="
-        puts "key: #{key} value: #{value} \n"
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
 
@@ -110,7 +108,6 @@ module Quaff
       auth_pairs = {}
       auth_hdr.sub("Digest ", "").split(",") .each do |pair|
         key, value = pair.split "="
-        puts "key: #{key} value: #{value} \n"
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
       resp = Auth.gen_response auth_pairs, username, passwd, method, sip_uri, cnonce, cnonce_cnt
