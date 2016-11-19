@@ -5,12 +5,17 @@ module Quaff
 
 class AKARegistrationControl
 
-  def initialize username, uri, password, opaque
+  def initialize username, uri, password, opaque, sqn, amf
     @username = username
     @number, @domain = @username.split('@')
     @uri = uri
     gen_cnonce
-    puts "akaregctrl: passwd: #{password} opaque: #{opaque} \n"
+
+    @password = password
+    @kernel = Milenage::Kernel.new(@password)
+    @kernel.op = opaque
+    @rsqn = sqn
+    @amf = amf
   end
 
   def gen_cnonce
@@ -20,13 +25,6 @@ class AKARegistrationControl
     
   def inc_cnonce_cnt
     @cnonce_count += 1
-  end
-
-  def set_aka_credentials password, op
-    @password = password
-    puts "password: #{@password} #{@password.each_byte.to_a.length} opaque: #{op} #{op.each_byte.to_a.length} \n"
-    @kernel = Milenage::Kernel.new(@password)
-    @kernel.op = op
   end
 
   def calc_aka hdr
@@ -39,14 +37,12 @@ class AKARegistrationControl
     ik = @kernel.f4 rand
     iks = ik.unpack("H*").join
     res = @kernel.f2 rand
-    puts "rand: #{rand.unpack("H*").join} autn: #{autn.unpack("H*").join} res: #{res.unpack("H*").join}  ck: #{cks} ik: #{iks}  \n"
     return res, iks, cks
   end
 
   def gen_credentials response_data
     rcv_auth_hdr = response_data.header("WWW-Authenticate")
     @res,ik,ck = calc_aka rcv_auth_hdr
-    @ipsec_ctrl.set_keys @password, ck, ik
   end
 
   def gen_auth_hdr
@@ -80,7 +76,6 @@ class AKARegistrationControl
     else
       res = @res
     end
-    puts "gen_auth_hdr_rsp: res: #{res} \n"
     @auth_hdr_rsp = Auth.gen_aka_resp_auth_header rcv_auth_hdr, @username, @password, method, @uri, nc, @cnonce, res
   end
 

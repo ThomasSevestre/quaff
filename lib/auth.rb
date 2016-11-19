@@ -27,16 +27,26 @@ module Quaff
       return digest
     end
 
-
-    def Auth.extract_rand auth_line
+    def Auth.extract_pairs auth_line
       # Split auth line on commas
       auth_pairs = {}
       auth_line.sub("Digest ", "").split(",") .each do |pair|
         key, value = pair.split "="
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
+      return auth_pairs
+    end
+
+    def Auth.extract_rand auth_line
+      auth_pairs = extract_pairs auth_line
       # First 128 bits are the RAND
       return Base64.decode64(auth_pairs["nonce"])[0..15]
+    end
+
+    def Auth.extract_autn auth_line
+      auth_pairs = extract_pairs auth_line
+      # Last 128 bits are the AUTN
+      return Base64.decode64(auth_pairs["nonce"])[16..31]
     end
 
     def Auth.gen_empty_auth_header username

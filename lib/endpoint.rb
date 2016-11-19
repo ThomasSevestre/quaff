@@ -134,9 +134,8 @@ module Quaff
     end
 
     # Not yet ready for use
-    def set_aka_credentials key, op # :nodoc:
-      @kernel = Milenage.Kernel key
-      @kernel.op = op
+    def set_aka_credentials key, op, sqn, amf
+      @aka_ctrl = AKARegistrationControl.new @username, @uri, key, op, sqn, amf
     end
 
     # Utility method - handles a REGISTER/200 or
@@ -168,22 +167,22 @@ module Quaff
       return response_data # always the 200 OK
     end
 
-    def initial_aka_register call, expires="3600"
+    def initial_aka_register expires="3600"
       # We need to send an authorization header and Secure-Client header in our initial Register
-      @reg_call = call
+      @reg_call ||= outgoing_call(@uri)
       auth_hdr = @aka_ctrl.gen_auth_hdr
-      call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr })
+      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr })
+      return @reg_call
     end
 
-    def second_aka_register call, msg, expires="3600", bad_pass=false, nonce_count=nil 
-      @reg_call ||= call
+    def second_aka_register msg, expires="3600", bad_pass=false, nonce_count=nil 
       @aka_ctrl.gen_credentials msg
       # change via to reflect tunnel
-      vhdr = call.get_new_via_hdr
-      call.update_branch vhdr
+      vhdr = @reg_call.get_new_via_hdr
+      @reg_call.update_branch vhdr
       # gen the auth and security-client headers
       auth_hdr = @aka_ctrl.gen_auth_hdr_rsp "REGISTER", msg, bad_pass, nonce_count
-      call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr})
+      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr})
     end      
 
 
