@@ -6,6 +6,7 @@ require 'resolv'
 require 'securerandom'
 require_relative './sip_parser.rb'
 require_relative './sources.rb'
+require_relative './aka_registration_control.rb'
 require 'digest/md5'
 require 'stringio'
 
@@ -166,6 +167,25 @@ module Quaff
       end
       return response_data # always the 200 OK
     end
+
+    def initial_aka_register call, expires="3600"
+      # We need to send an authorization header and Secure-Client header in our initial Register
+      @reg_call = call
+      auth_hdr = @aka_ctrl.gen_auth_hdr
+      call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr })
+    end
+
+    def second_aka_register call, msg, expires="3600", bad_pass=false, nonce_count=nil 
+      @reg_call ||= call
+      @aka_ctrl.gen_credentials msg
+      # change via to reflect tunnel
+      vhdr = call.get_new_via_hdr
+      call.update_branch vhdr
+      # gen the auth and security-client headers
+      auth_hdr = @aka_ctrl.gen_auth_hdr_rsp "REGISTER", msg, bad_pass, nonce_count
+      call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr})
+    end      
+
 
     def unregister
       register 0
