@@ -153,12 +153,6 @@ module Quaff
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
       response_data = @reg_call.recv_response("401|200")
       if response_data.status_code == "401"
-        if aka
-          rand = Quaff::Auth.extract_rand response_data.header("WWW-Authenticate")
-          password = @kernel.f3 rand
-        else
-          password = @password
-        end
         auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), @username, @password, "REGISTER", @uri
         @reg_call.update_branch
         @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
@@ -170,19 +164,18 @@ module Quaff
     def initial_aka_register expires="3600"
       # We need to send an authorization header and Secure-Client header in our initial Register
       @reg_call ||= outgoing_call(@uri)
-      auth_hdr = @aka_ctrl.gen_auth_hdr
+      auth_hdr = Quaff::Auth.gen_empty_auth_header @username
       @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr })
       return @reg_call
     end
 
-    def second_aka_register msg, expires="3600", bad_pass=false, nonce_count=nil 
-      @aka_ctrl.gen_credentials msg
-      # change via to reflect tunnel
+    def second_aka_register msg, expires="3600"
       vhdr = @reg_call.get_new_via_hdr
       @reg_call.update_branch vhdr
       # gen the auth and security-client headers
-      auth_hdr = @aka_ctrl.gen_auth_hdr_rsp "REGISTER", msg, bad_pass, nonce_count
-      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr})
+      auth_hdr = @aka_ctrl.gen_auth_hdr_rsp "REGISTER", msg
+      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr, "P-Quaff-Debug-AKA-RES" =>  @aka_ctrl.res.unpack('H*').first})
+      puts "RES contains a zero byte" if @aka_ctrl.res.each_byte.any? { |b| b == 0 }
     end      
 
 

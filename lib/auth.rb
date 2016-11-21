@@ -30,7 +30,7 @@ module Quaff
       # Split auth line on commas
       auth_pairs = {}
       auth_line.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
+        key, value = pair.split("=", 2)
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
       return auth_pairs
@@ -59,7 +59,7 @@ module Quaff
       # Split auth line on commas
       auth_pairs = {}
       auth_line.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
+        key, value = pair.split("=", 2)
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
       if !qop.empty? and cnonce.empty?
@@ -72,47 +72,6 @@ module Quaff
         return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",response="#{digest}",algorithm="#{auth_pairs['algorithm']}",opaque="#{auth_pairs['opaque']}"!
       end
       # Return Authorization header with fields username, realm, nonce, uri, nc, cnonce, response, opaque
-    end
-
-    def Auth.gen_initial_aka_auth_header username, realm, uri
-      return %Q!Digest username="#{username}",realm="#{realm}",uri="#{uri}"!
-    end
-
-    def Auth.gen_aka_auth_header username, realm, uri, res, auth_hdr
-      # Split auth line on commas
-      auth_pairs = {}
-      auth_hdr.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
-        auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
-      end
-      nonce = auth_pairs["nonce"]      
-      return %Q!Digest username="#{username}",realm="#{realm}",uri="#{uri}", nonce="#{nonce}", response="#{res}"!
-    end
-
-    def Auth.gen_aka_resp_auth_header auth_hdr, username, passwd, method, sip_uri, cnonce_cnt, cnonce, res=nil
-      # Split auth line on commas
-      auth_pairs = {}
-      auth_hdr.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
-        auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
-      end
-
-      auth_pairs['nonce'] = auth_pairs['nonce'] + "="
-
-      resp = Auth.gen_response auth_pairs, username, res, method, sip_uri, cnonce, cnonce_cnt
-      return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",qop=#{auth_pairs['qop']},nc=#{cnonce_cnt},cnonce="#{cnonce}",response="#{resp}",opaque="#{auth_pairs['opaque']}"!
-    end
-
-    def Auth.gen_digest_resp_auth_header auth_hdr, username, passwd, method, sip_uri, cnonce_cnt, cnonce, res=nil
-      # Split auth line on commas
-      auth_pairs = {}
-      auth_hdr.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
-        auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
-      end
-      resp = Auth.gen_response auth_pairs, username, passwd, method, sip_uri, cnonce, cnonce_cnt
-
-      return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",cnonce="#{cnonce}",nc=#{cnonce_cnt},qop=#{auth_pairs['qop']},uri="#{sip_uri}",nonce="#{auth_pairs['nonce']}",response="#{resp}",algorithm=#{auth_pairs['algorithm']},opaque="#{auth_pairs['opaque']}"!
     end
   end
 end
