@@ -85,7 +85,8 @@ class Call
         @routeset = msg.all_headers("Record-Route").reverse
       end
 
-      Quaff::Utils.check_route_matches_destination(@routeset.first, @destination) if @destination
+      # This is currently broken with our HEAT deployment and AIO node
+      # Quaff::Utils.check_route_matches_destination(@routeset.first, @destination) if @destination
     end
 
   end
