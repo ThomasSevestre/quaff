@@ -6,8 +6,8 @@ require 'resolv'
 require 'securerandom'
 require_relative './sip_parser.rb'
 require_relative './sources.rb'
-require_relative './aka_registration_control.rb'
 require 'digest/md5'
+require 'milenage'
 require 'stringio'
 
 module Quaff
@@ -134,11 +134,9 @@ module Quaff
         source.send_msg(@cxn, data)
     end
 
-    def set_aka_credentials key, op, sqn, amf
+    def set_aka_credentials key, op
       @kernel = Milenage::Kernel.new(key)
       @kernel.op = op
-      @rsqn = sqn
-      @amf = amf
     end
 
   def calculate_akav1_password hdr
