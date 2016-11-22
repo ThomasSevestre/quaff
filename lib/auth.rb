@@ -17,15 +17,6 @@ module Quaff
       return digest
     end
 
-    def Auth.gen_response auth_pairs, username, passwd, method, sip_uri, cnonce, cnonce_cnt
-      a1 = username + ":" + auth_pairs["realm"] + ":" + passwd
-      a2 = method + ":" + sip_uri
-      ha1 = Digest::MD5::hexdigest(a1)
-      ha2 = Digest::MD5::hexdigest(a2)
-      digest = Digest::MD5.hexdigest(ha1 + ":" + auth_pairs["nonce"] + ":" + cnonce_cnt + ":" + cnonce + ":" + auth_pairs["qop"] + ":" + ha2)
-      return digest
-    end
-
     def Auth.extract_pairs auth_line
       # Split auth line on commas
       auth_pairs = {}
@@ -42,10 +33,9 @@ module Quaff
       return Base64.decode64(auth_pairs["nonce"])[0..15]
     end
 
-    def Auth.extract_autn auth_line
+    def Auth.get_algorithm auth_line
       auth_pairs = extract_pairs auth_line
-      # Last 128 bits are the AUTN
-      return Base64.decode64(auth_pairs["nonce"])[16..31]
+      return auth_pairs["algorithm"]
     end
 
     def Auth.gen_empty_auth_header username
@@ -57,21 +47,20 @@ module Quaff
 
     def Auth.gen_auth_header auth_line, username, passwd, method, sip_uri, ha1="", qop="", nc=1, cnonce=""
       # Split auth line on commas
-      auth_pairs = {}
-      auth_line.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split("=", 2)
-        auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
-      end
+      auth_pairs = extract_pairs(auth_line)
+
       if !qop.empty? and cnonce.empty?
         cnonce = (0...16).map { (rand(16)).to_s(16) }.join
       end
+
       digest = gen_nonce auth_pairs, username, passwd, method, sip_uri, ha1, qop, nc, cnonce
+
+      # Return Authorization header with fields username, realm, nonce, uri, nc, cnonce, response, opaque
       if !qop.empty?
         return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",response="#{digest}",algorithm="#{auth_pairs['algorithm']}",opaque="#{auth_pairs['opaque']}",qop="#{qop}",nc="#{nc.to_s(16).rjust(8, "0")}",cnonce="#{cnonce}"!
       else
         return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",response="#{digest}",algorithm="#{auth_pairs['algorithm']}",opaque="#{auth_pairs['opaque']}"!
       end
-      # Return Authorization header with fields username, realm, nonce, uri, nc, cnonce, response, opaque
     end
   end
 end

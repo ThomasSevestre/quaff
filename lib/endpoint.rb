@@ -13,7 +13,7 @@ require 'stringio'
 module Quaff
   class BaseEndpoint
     attr_accessor :msg_trace, :uri, :sdp_port, :sdp_socket, :local_hostname
-    attr_reader :msg_log, :local_port, :instance_id
+    attr_reader :msg_log, :local_port, :instance_id, :algorithm
 
     # Creates an SDP socket bound to an ephemeral port
     def setup_sdp
@@ -117,6 +117,7 @@ module Quaff
       @contact_uri_params = {"transport" => transport, "ob" => true}
       @terminated = false
       @local_hostname = Utils::local_ip
+      @algorithm = "not authenticated"
       initialize_queues
       start
     end
@@ -133,10 +134,30 @@ module Quaff
         source.send_msg(@cxn, data)
     end
 
-    # Not yet ready for use
     def set_aka_credentials key, op, sqn, amf
-      @aka_ctrl = AKARegistrationControl.new @username, @uri, key, op, sqn, amf
+      @kernel = Milenage::Kernel.new(key)
+      @kernel.op = op
+      @rsqn = sqn
+      @amf = amf
     end
+
+  def calculate_akav1_password hdr
+    rand = Quaff::Auth.extract_rand hdr
+    res = @kernel.f2 rand
+    return res
+  end
+
+
+  def calculate_akav2_password hdr
+    rand = Quaff::Auth.extract_rand hdr
+    ck = @kernel.f3 rand
+    cks = ck.unpack("H*").join
+    ik = @kernel.f4 rand
+    iks = ik.unpack("H*").join
+    res = @kernel.f2 rand
+    # TODO: do the HMAC calculation on RES/IK/CK
+    return res
+  end
 
     # Utility method - handles a REGISTER/200 or
     # REGISTER/401/REGISTER/200 flow to authenticate the subscriber.
@@ -146,13 +167,19 @@ module Quaff
     #
     # Returns the +Message+ representing the 200 OK, or throws an
     # exception on failure to authenticate successfully.
-    def register expires="3600", aka=false
+    def register expires="3600"
       @reg_call ||= outgoing_call(@uri)
       auth_hdr = Quaff::Auth.gen_empty_auth_header @username
       @reg_call.update_branch
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
       response_data = @reg_call.recv_response("401|200")
       if response_data.status_code == "401"
+        @algorithm = Quaff::Auth.get_algorithm(response_data.header("WWW-Authenticate"))
+        if @algorithm == "AKAv1-MD5"
+          @password = calculate_akav1_password(response_data.header("WWW-Authenticate"))
+          # Temporary check for debugging https://github.com/Metaswitch/sprout/issues/1599
+          puts "RES contains a zero byte" if @password.each_byte.any? { |b| b == 0 }
+        end
         auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), @username, @password, "REGISTER", @uri
         @reg_call.update_branch
         @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
@@ -160,24 +187,6 @@ module Quaff
       end
       return response_data # always the 200 OK
     end
-
-    def initial_aka_register expires="3600"
-      # We need to send an authorization header and Secure-Client header in our initial Register
-      @reg_call ||= outgoing_call(@uri)
-      auth_hdr = Quaff::Auth.gen_empty_auth_header @username
-      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr })
-      return @reg_call
-    end
-
-    def second_aka_register msg, expires="3600"
-      vhdr = @reg_call.get_new_via_hdr
-      @reg_call.update_branch vhdr
-      # gen the auth and security-client headers
-      auth_hdr = @aka_ctrl.gen_auth_hdr_rsp "REGISTER", msg
-      @reg_call.send_request("REGISTER", "", { "Expires" => expires.to_s, "Authorization" => auth_hdr, "P-Quaff-Debug-AKA-RES" =>  @aka_ctrl.res.unpack('H*').first})
-      puts "RES contains a zero byte" if @aka_ctrl.res.each_byte.any? { |b| b == 0 }
-    end      
-
 
     def unregister
       register 0
