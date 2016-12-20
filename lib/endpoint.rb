@@ -7,6 +7,8 @@ require 'securerandom'
 require_relative './sip_parser.rb'
 require_relative './sources.rb'
 require 'digest/md5'
+require 'base64'
+require 'openssl'
 require 'milenage'
 require 'stringio'
 
@@ -148,13 +150,13 @@ module Quaff
 
   def calculate_akav2_password hdr
     rand = Quaff::Auth.extract_rand hdr
-    ck = @kernel.f3 rand
-    cks = ck.unpack("H*").join
-    ik = @kernel.f4 rand
-    iks = ik.unpack("H*").join
     res = @kernel.f2 rand
-    # TODO: do the HMAC calculation on RES/IK/CK
-    return res
+    ck = @kernel.f3 rand
+    ik = @kernel.f4 rand
+
+    digest = OpenSSL::Digest.new('md5')
+    hmac = OpenSSL::HMAC.digest(digest, res + ik + ck, "http-digest-akav2-password")
+    return Base64.strict_encode64(hmac)
   end
 
     # Utility method - handles a REGISTER/200 or
@@ -173,11 +175,13 @@ module Quaff
       response_data = @reg_call.recv_response("401|200")
       if response_data.status_code == "401"
         @algorithm = Quaff::Auth.get_algorithm(response_data.header("WWW-Authenticate"))
+
         if @algorithm == "AKAv1-MD5"
           @password = calculate_akav1_password(response_data.header("WWW-Authenticate"))
-          # Temporary check for debugging https://github.com/Metaswitch/sprout/issues/1599
-          puts "RES contains a zero byte" if @password.each_byte.any? { |b| b == 0 }
+        elsif @algorithm == "AKAv2-MD5"
+          @password = calculate_akav2_password(response_data.header("WWW-Authenticate"))
         end
+
         auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), @username, @password, "REGISTER", @uri
         @reg_call.update_branch
         @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
