@@ -108,12 +108,15 @@ class Call
     begin
       msg = recv_something
     rescue Timeout::Error
-      raise "#{ @uri } timed out waiting for #{ method }"
+      raise "#{ @uri } timed out waiting for #{ method } (call ID #{ @cid })"
     end
 
-    unless msg.type == :request \
-      and Regexp.new(method) =~ msg.method
-      raise((msg.to_s || "Message is nil!"))
+    if msg.type == :request
+      unless Regexp.new(method) =~ msg.method
+        raise "#{ @uri } received #{ msg.method } instead of #{ method } (call ID #{ @cid })"
+      end
+    else
+      raise "#{ @uri } received #{ msg.status_code } response instead of #{ method } (call ID #{ @cid })"
     end
 
     unless @has_To_tag
@@ -149,7 +152,7 @@ class Call
     begin
       msg = recv_something
     rescue Timeout::Error
-      raise "#{ @uri } timed out waiting for one of these: #{possible_messages}"
+      raise "#{ @uri } timed out waiting for one of these: #{possible_messages} (call ID #{ @cid })"
     end
 
     found_match = false
@@ -176,7 +179,13 @@ class Call
     end
 
     unless found_match
-      raise((msg.to_s || "Message is nil!"))
+      if msg.type == :request
+        unless Regexp.new(method) =~ msg.method
+          raise "#{ @uri } received #{ msg.method } instead of #{ possible_messages } (call ID #{ @cid })"
+        end
+      else
+        raise "#{ @uri } received #{ msg.status_code } response instead of #{ possible_messages } (call ID #{ @cid })"
+      end
     end
 
     if msg.type == :request
@@ -205,11 +214,11 @@ class Call
     begin
       msg = recv_something
     rescue Timeout::Error
-      raise "#{ @uri } timed out waiting for #{ code }"
+      raise "#{ @uri } timed out waiting for #{ code } (call ID #{ @cid })"
     end
     unless msg.type == :response \
       and Regexp.new(code) =~ msg.status_code
-      raise "Expected #{ code}, got #{msg.status_code || msg}"
+      raise "Expected #{ code}, got #{msg.status_code || msg.method} (call ID #{ @cid })"
     end
 
     if dialog_creating
