@@ -323,7 +323,7 @@ class Call
           @cxn.send(msg, @src)
           timer *=2
           if timer < @t2 then
-            raise "Too many retransmits!"
+            raise "Too many retransmits on call #{ @cid }!"
           end
           sleep timer
         end
