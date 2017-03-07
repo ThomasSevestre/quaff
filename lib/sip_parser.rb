@@ -197,7 +197,7 @@ module Quaff
 
     def tel_uri
       Concat.new(Literal.new("tel:"),
-                 Repetition.new([:at_least, 1], Digit.new))
+                 Repetition.new([:at_least, 1], Alternate.new(HexDigit.new, Char.new("+"), Char.new("-"))))
     end
 
     def addr_spec
