@@ -189,6 +189,10 @@ class Call
       end
     end
 
+    if dialog_creating
+      create_dialog msg
+    end
+
     if msg.type == :request
       unless @has_To_tag
         @has_To_tag = true
@@ -205,9 +209,6 @@ class Call
       end
     end
 
-    if dialog_creating
-      create_dialog msg
-    end
     msg
   end
 
