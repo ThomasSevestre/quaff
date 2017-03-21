@@ -202,15 +202,13 @@ module Quaff
       Timeout::timeout(time_limit) { @messages[cid].deq }
     end
 
-
-
     # Flags that a particular call has ended, and any more messages
     # using it shold be ignored.
     def mark_call_dead(cid)
-        @messages.delete cid
-        now = Time.now
-        @dead_calls[cid] = now + 30
-        @dead_calls = @dead_calls.keep_if {|k, v| v > now}
+      @messages.delete cid
+      now = Time.now
+      @dead_calls[cid] = now + 30
+      @dead_calls = @dead_calls.keep_if {|k, v| v > now}
     end
     private
 
@@ -222,7 +220,7 @@ module Quaff
     end
 
     def get_new_call_id time_limit=30
-        Timeout::timeout(time_limit) { @call_ids.deq }
+      Timeout::timeout(time_limit) { @call_ids.deq }
     end
 
     def no_new_calls?
@@ -231,22 +229,25 @@ module Quaff
 
     # Sets up the internal structures needed to handle calls for a new Call-ID.
     def add_call_id cid
-        @messages[cid] ||= Queue.new
+      @messages[cid] ||= Queue.new
     end
 
     def initialize_queues
-        @messages = {}
-        @call_ids = Queue.new
-        @dead_calls = {}
-        @sockets
+      @messages = {}
+      @call_ids = Queue.new
+      @dead_calls = {}
+      @sockets
     end
 
     def start
-        Thread.new do
-            until @terminated do
-                recv_msg
-            end
+      Thread.new do
+        until @terminated do
+          recv_msg
+
+          # Check for new messages every 0.1 seconds.
+          sleep 0.1
         end
+      end
     end
 
     def is_retransmission? msg
@@ -318,21 +319,22 @@ module Quaff
 
 
     def recv_msg
-        warn "recv_msg called for an endpoint with no sockets - will tight-loop" if (@sockets.empty? and @cxn.nil?)
-        select_response = IO.select(@sockets, [], [], 0) || [[]]
-        readable = select_response[0]
+      # First, check for any new incoming connections.
+      begin
+        if @cxn
+          sock = @cxn.accept_nonblock
+          @sockets.push sock if sock
+        end
+      rescue IO::WaitReadable, Errno::EINTR
+      end
 
-        for sock in readable do
-            recv_msg_from_sock sock
-        end
-        begin
-            if @cxn
-              sock = @cxn.accept_nonblock
-              @sockets.push sock if sock
-            end
-        rescue IO::WaitReadable, Errno::EINTR
-            sleep 0.3
-        end
+      # Now read from all the sockets we have.
+      select_response = IO.select(@sockets, [], [], 0) || [[]]
+      readable = select_response[0]
+
+      for sock in readable do
+        recv_msg_from_sock sock
+      end
     end
 
     def recv_msg_from_sock(sock)
