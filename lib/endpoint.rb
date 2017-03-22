@@ -244,7 +244,8 @@ module Quaff
         until @terminated do
           recv_msg
 
-          # Check for new messages every 0.1 seconds.
+          # Check for new messages every 0.1 seconds. We have to sleep here because
+          # otherwise we'd just tightloop here.
           sleep 0.1
         end
       end
