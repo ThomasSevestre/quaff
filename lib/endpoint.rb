@@ -210,6 +210,11 @@ module Quaff
       @dead_calls[cid] = now + 30
       @dead_calls = @dead_calls.keep_if {|k, v| v > now}
     end
+
+    def no_new_calls?
+      return @call_ids.empty?
+    end
+
     private
 
     # Creates a random Call-ID
@@ -221,10 +226,6 @@ module Quaff
 
     def get_new_call_id time_limit=30
       Timeout::timeout(time_limit) { @call_ids.deq }
-    end
-
-    def no_new_calls?
-      return @call_ids.empty?
     end
 
     # Sets up the internal structures needed to handle calls for a new Call-ID.
