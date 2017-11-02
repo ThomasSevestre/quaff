@@ -17,15 +17,25 @@ module Quaff
       return digest
     end
 
-    def Auth.extract_rand auth_line
+    def Auth.extract_pairs auth_line
       # Split auth line on commas
       auth_pairs = {}
       auth_line.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
+        key, value = pair.split("=", 2)
         auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
       end
+      return auth_pairs
+    end
+
+    def Auth.extract_rand auth_line
+      auth_pairs = extract_pairs auth_line
       # First 128 bits are the RAND
       return Base64.decode64(auth_pairs["nonce"])[0..15]
+    end
+
+    def Auth.get_algorithm auth_line
+      auth_pairs = extract_pairs auth_line
+      return auth_pairs["algorithm"]
     end
 
     def Auth.gen_empty_auth_header username
@@ -37,21 +47,20 @@ module Quaff
 
     def Auth.gen_auth_header auth_line, username, passwd, method, sip_uri, ha1="", qop="", nc=1, cnonce=""
       # Split auth line on commas
-      auth_pairs = {}
-      auth_line.sub("Digest ", "").split(",") .each do |pair|
-        key, value = pair.split "="
-        auth_pairs[key.gsub(" ", "")] = value.gsub("\"", "").gsub(" ", "")
-      end
+      auth_pairs = extract_pairs(auth_line)
+
       if !qop.empty? and cnonce.empty?
         cnonce = (0...16).map { (rand(16)).to_s(16) }.join
       end
+
       digest = gen_nonce auth_pairs, username, passwd, method, sip_uri, ha1, qop, nc, cnonce
+
+      # Return Authorization header with fields username, realm, nonce, uri, nc, cnonce, response, opaque
       if !qop.empty?
         return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",response="#{digest}",algorithm="#{auth_pairs['algorithm']}",opaque="#{auth_pairs['opaque']}",qop="#{qop}",nc="#{nc.to_s(16).rjust(8, "0")}",cnonce="#{cnonce}"!
       else
         return %Q!Digest username="#{username}",realm="#{auth_pairs['realm']}",nonce="#{auth_pairs['nonce']}",uri="#{sip_uri}",response="#{digest}",algorithm="#{auth_pairs['algorithm']}",opaque="#{auth_pairs['opaque']}"!
       end
-      # Return Authorization header with fields username, realm, nonce, uri, nc, cnonce, response, opaque
     end
   end
 end

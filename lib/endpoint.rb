@@ -7,12 +7,15 @@ require 'securerandom'
 require_relative './sip_parser.rb'
 require_relative './sources.rb'
 require 'digest/md5'
+require 'base64'
+require 'openssl'
+require 'milenage'
 require 'stringio'
 
 module Quaff
   class BaseEndpoint
     attr_accessor :msg_trace, :uri, :sdp_port, :sdp_socket, :local_hostname
-    attr_reader :msg_log, :local_port, :instance_id
+    attr_reader :msg_log, :local_port, :instance_id, :algorithm
 
     # Creates an SDP socket bound to an ephemeral port
     def setup_sdp
@@ -116,6 +119,7 @@ module Quaff
       @contact_uri_params = {"transport" => transport, "ob" => true}
       @terminated = false
       @local_hostname = Utils::local_ip
+      @algorithm = "not authenticated"
       initialize_queues
       start
     end
@@ -132,11 +136,28 @@ module Quaff
         source.send_msg(@cxn, data)
     end
 
-    # Not yet ready for use
-    def set_aka_credentials key, op # :nodoc:
-      @kernel = Milenage.Kernel key
+    def set_aka_credentials key, op
+      @kernel = Milenage::Kernel.new(key)
       @kernel.op = op
     end
+
+  def calculate_akav1_password hdr
+    rand = Quaff::Auth.extract_rand hdr
+    res = @kernel.f2 rand
+    return res
+  end
+
+
+  def calculate_akav2_password hdr
+    rand = Quaff::Auth.extract_rand hdr
+    res = @kernel.f2 rand
+    ck = @kernel.f3 rand
+    ik = @kernel.f4 rand
+
+    digest = OpenSSL::Digest.new('md5')
+    hmac = OpenSSL::HMAC.digest(digest, res + ik + ck, "http-digest-akav2-password")
+    return Base64.strict_encode64(hmac)
+  end
 
     # Utility method - handles a REGISTER/200 or
     # REGISTER/401/REGISTER/200 flow to authenticate the subscriber.
@@ -146,19 +167,21 @@ module Quaff
     #
     # Returns the +Message+ representing the 200 OK, or throws an
     # exception on failure to authenticate successfully.
-    def register expires="3600", aka=false
+    def register expires="3600"
       @reg_call ||= outgoing_call(@uri)
       auth_hdr = Quaff::Auth.gen_empty_auth_header @username
       @reg_call.update_branch
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
       response_data = @reg_call.recv_response("401|200")
       if response_data.status_code == "401"
-        if aka
-          rand = Quaff::Auth.extract_rand response_data.header("WWW-Authenticate")
-          password = @kernel.f3 rand
-        else
-          password = @password
+        @algorithm = Quaff::Auth.get_algorithm(response_data.header("WWW-Authenticate"))
+
+        if @algorithm == "AKAv1-MD5"
+          @password = calculate_akav1_password(response_data.header("WWW-Authenticate"))
+        elsif @algorithm == "AKAv2-MD5"
+          @password = calculate_akav2_password(response_data.header("WWW-Authenticate"))
         end
+
         auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), @username, @password, "REGISTER", @uri
         @reg_call.update_branch
         @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
@@ -179,16 +202,19 @@ module Quaff
       Timeout::timeout(time_limit) { @messages[cid].deq }
     end
 
-
-
     # Flags that a particular call has ended, and any more messages
     # using it shold be ignored.
     def mark_call_dead(cid)
-        @messages.delete cid
-        now = Time.now
-        @dead_calls[cid] = now + 30
-        @dead_calls = @dead_calls.keep_if {|k, v| v > now}
+      @messages.delete cid
+      now = Time.now
+      @dead_calls[cid] = now + 30
+      @dead_calls = @dead_calls.keep_if {|k, v| v > now}
     end
+
+    def no_new_calls?
+      return @call_ids.empty?
+    end
+
     private
 
     # Creates a random Call-ID
@@ -199,31 +225,31 @@ module Quaff
     end
 
     def get_new_call_id time_limit=30
-        Timeout::timeout(time_limit) { @call_ids.deq }
-    end
-
-    def no_new_calls?
-      return @call_ids.empty?
+      Timeout::timeout(time_limit) { @call_ids.deq }
     end
 
     # Sets up the internal structures needed to handle calls for a new Call-ID.
     def add_call_id cid
-        @messages[cid] ||= Queue.new
+      @messages[cid] ||= Queue.new
     end
 
     def initialize_queues
-        @messages = {}
-        @call_ids = Queue.new
-        @dead_calls = {}
-        @sockets
+      @messages = {}
+      @call_ids = Queue.new
+      @dead_calls = {}
+      @sockets
     end
 
     def start
-        Thread.new do
-            until @terminated do
-                recv_msg
-            end
+      Thread.new do
+        until @terminated do
+          recv_msg
+
+          # Check for new messages every 0.1 seconds. We have to sleep here because
+          # otherwise we'd just tightloop here.
+          sleep 0.1
         end
+      end
     end
 
     def is_retransmission? msg
@@ -295,21 +321,22 @@ module Quaff
 
 
     def recv_msg
-        warn "recv_msg called for an endpoint with no sockets - will tight-loop" if (@sockets.empty? and @cxn.nil?)
-        select_response = IO.select(@sockets, [], [], 0) || [[]]
-        readable = select_response[0]
+      # First, check for any new incoming connections.
+      begin
+        if @cxn
+          sock = @cxn.accept_nonblock
+          @sockets.push sock if sock
+        end
+      rescue IO::WaitReadable, Errno::EINTR
+      end
 
-        for sock in readable do
-            recv_msg_from_sock sock
-        end
-        begin
-            if @cxn
-              sock = @cxn.accept_nonblock
-              @sockets.push sock if sock
-            end
-        rescue IO::WaitReadable, Errno::EINTR
-            sleep 0.3
-        end
+      # Now read from all the sockets we have.
+      select_response = IO.select(@sockets, [], [], 0) || [[]]
+      readable = select_response[0]
+
+      for sock in readable do
+        recv_msg_from_sock sock
+      end
     end
 
     def recv_msg_from_sock(sock)
