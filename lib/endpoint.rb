@@ -269,8 +269,8 @@ module Quaff
       puts "Endpoint on #{@local_port} received #{msg} from #{source.inspect}" if @msg_trace
       msg.source = source
       cid = @parser.message_identifier msg
-      if cid and not @dead_calls.has_key? cid then
-        unless @messages.has_key? cid then
+      if cid && !@dead_calls.has_key?(cid)
+        unless @messages.has_key?(cid)
           add_call_id cid
           @call_ids.enq cid
         end
