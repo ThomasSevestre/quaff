@@ -387,6 +387,11 @@ module Quaff
       @parser = SipParser.new
     end
 
+    def terminate_specific
+      @cxn.close
+      @cxn= nil
+    end
+
     def recv_msg
       data, addrinfo = @cxn.recvfrom(65535)
       @parser.parse_start
