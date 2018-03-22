@@ -15,6 +15,7 @@ require 'stringio'
 module Quaff
   class BaseEndpoint
     attr_accessor :msg_trace, :uri, :sdp_port, :sdp_socket, :local_hostname
+    attr_accessor :auto_answer_options
     attr_reader :msg_log, :local_port, :instance_id, :algorithm
 
     # Creates an SDP socket bound to an ephemeral port
@@ -120,6 +121,7 @@ module Quaff
       @terminated = false
       @local_hostname = Utils::local_ip
       @algorithm = "not authenticated"
+      @auto_answer_options= false
       initialize_queues
       start
     end
@@ -272,10 +274,19 @@ module Quaff
       if cid && !@dead_calls.has_key?(cid)
         unless @messages.has_key?(cid)
           add_call_id cid
-          @call_ids.enq cid
+          unless msg.method == "OPTIONS" && @auto_answer_options
+            @call_ids.enq cid
+          end
         end
         @messages[cid].enq(msg)
+
+        if msg.method == "OPTIONS" && @auto_answer_options
+          call= Call.new(self, cid, @instance_id, @uri)
+          call.recv_request("OPTIONS")
+          call.send_response(200, "OK")
+        end
       end
+
     end
   end
 
