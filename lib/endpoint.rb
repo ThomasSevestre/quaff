@@ -201,7 +201,15 @@ module Quaff
     # blocks for up to time_limit seconds waiting for one. If nothing
     # arrives, raises a TimeoutError.
     def get_new_message(cid, time_limit=30) # :nodoc:
-      Timeout::timeout(time_limit) { @messages[cid].deq }
+      time_spent= 0
+      while time_spent < time_limit
+        msg= @messages[cid].deq(false)
+        break if msg
+        sleep 0.1
+        time_spent+= 0.1
+      end
+      raise Timeout::Error if msg.nil?
+      msg
     end
 
     # Flags that a particular call has ended, and any more messages
@@ -227,7 +235,15 @@ module Quaff
     end
 
     def get_new_call_id time_limit=30
-      Timeout::timeout(time_limit) { @call_ids.deq }
+      time_spent= 0
+      while time_spent < time_limit
+        cid= @call_ids.deq(false)
+        break if cid
+        sleep 0.1
+        time_spent+= 0.1
+      end
+      raise Timeout::Error if cid.nil?
+      cid
     end
 
     # Sets up the internal structures needed to handle calls for a new Call-ID.
