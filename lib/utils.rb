@@ -32,9 +32,13 @@ def Utils.new_branch
     "z9hG4bK#{Time.new.to_f}"
 end
 
-def Utils.paramhash_to_str params
-  params.collect {|k, v| if (v == true) then ";#{k}" else ";#{k}=#{v}" end}.join("")
-end
+  def self.paramhash_to_str(params)
+    str= ""
+    params.each do |k, v|
+      str<< ( v == true ? ";#{k}" : ";#{k}=#{v}" )
+    end
+    str
+  end
 
 def Utils.check_route_matches_destination route, destination
   # Get the address and port out of the destination (note that destination.ip can be a hostname).
