@@ -20,9 +20,9 @@ module Quaff
     def parse_from_io(io, udp=false)
       parse_start
 
-      parse_initial_line(io.gets.rstrip)
-      while @state == :parsing_headers and not io.closed? do
-        parse_header_line io.gets.rstrip
+      parse_initial_line(io.gets)
+      while @state == :parsing_headers && !io.closed?
+        parse_header_line(io.gets)
       end
 
       if io.closed?
@@ -56,6 +56,7 @@ module Quaff
     end
 
     def parse_initial_line line
+      line.rstrip!
       fail "Invalid state: #{@state}" unless @state == :blank
       parts = line.split " ", 3
       if parts[2] == "SIP/2.0"
@@ -78,23 +79,27 @@ module Quaff
     end
     
     def parse_header_line line
+      line.rstrip!
       fail "Invalid state: #{@state}" unless @state == :parsing_headers
-      if line == "" and (body_length == 0)
-        @state = :done
-      elsif line == ""
-        @state = :waiting_for_body
+      if line.empty?
+        if body_length == 0
+          @state = :done
+        else
+          @state = :waiting_for_body
+        end
       elsif line.start_with? " "
         process_continuation_line line
       elsif line.include? ":"
-        parts = line.split ":", 2
-        header_name, header_value = parts[0].rstrip, parts[1].lstrip
-        @msg.headers[header_name] ||= []
-        @msg.headers[header_name].push header_value
+        header_name, header_value = line.split ":", 2
+        header_name.rstrip!
+        header_value.lstrip!
 
         if header_name == "Content-Length"
           # Special treatment - Content-Length defaults to 0 at
           # creation, so has to be overwritten
           @msg.headers[header_name] = [header_value]
+        else
+          (@msg.headers[header_name] ||= [])<< header_value
         end
 
         @cur_hdr = header_name
