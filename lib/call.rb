@@ -159,9 +159,8 @@ class Call
     found_match = false
     dialog_creating = nil
 
-    possible_messages.each do
-      | what, this_dialog_creating |
-      type = if (what.class == String) then :request else :response end
+    possible_messages.each do | what, this_dialog_creating |
+      type = what.is_a?(String) ? :request : :response
       if this_dialog_creating.nil?
         this_dialog_creating = (type == :request)
       end
@@ -323,7 +322,7 @@ class Call
           #puts "Retransmitting on call #{ @cid }"
           @cxn.send(msg, @src)
           timer *=2
-          if timer < @t2 then
+          if timer < @t2
             raise "Too many retransmits on call #{ @cid }!"
           end
           sleep timer
