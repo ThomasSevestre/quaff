@@ -16,7 +16,7 @@ module Quaff
   class BaseEndpoint
     attr_accessor :msg_trace, :uri, :sdp_port, :sdp_socket, :local_hostname
     attr_accessor :auto_answer_options
-    attr_reader :msg_log, :local_port, :instance_id, :algorithm
+    attr_reader :msg_log, :local_port, :instance_id, :algorithm, :retrans_count
 
     # Creates an SDP socket bound to an ephemeral port
     def setup_sdp
@@ -237,6 +237,7 @@ module Quaff
 
     def initialize_queues
       @messages = {}
+      @retrans_count= 0
       @call_ids = Queue.new
       @dead_calls = {}
       @sockets
@@ -260,6 +261,7 @@ module Quaff
 
     def queue_msg(msg, source)
       if is_retransmission? msg
+        @retrans_count+= 1
         @msg_log.push "Endpoint on #{@local_port} received retransmission"
         puts "Endpoint on #{@local_port} received retransmission" if @msg_trace
         return
