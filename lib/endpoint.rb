@@ -271,21 +271,20 @@ module Quaff
       end
     end
 
-    def is_retransmission? msg
-      @hashes.include? Digest::MD5.hexdigest(msg.to_s)
-    end
-
     def queue_msg(msg, source)
-      if is_retransmission? msg
+      # detect retransmissions
+      msg_str= msg.to_s
+      msg_digest= Digest::MD5.hexdigest(msg_str)
+      if @hashes.include?(msg_digest)
         @retrans_count+= 1
         @msg_log.push "Endpoint on #{@local_port} received retransmission"
         puts "Endpoint on #{@local_port} received retransmission" if @msg_trace
         return
       end
 
-      @hashes.push Digest::MD5.hexdigest(msg.to_s)
+      @hashes<< msg_digest
 
-      @msg_log.push "Endpoint on #{@local_port} received:\n\n#{msg.to_s.strip}\n\nfrom #{source.inspect}"
+      @msg_log.push "Endpoint on #{@local_port} received:\n\n#{msg_str.strip}\n\nfrom #{source.inspect}"
       puts "Endpoint on #{@local_port} received #{msg} from #{source.inspect}" if @msg_trace
       msg.source = source
       cid = @parser.message_identifier msg
