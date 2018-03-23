@@ -100,7 +100,7 @@ class Call
   #    meaningful for connection-oriented transports.)
   def setdest source, options={}
     @src = source
-    if options[:recv_from_this] and source.sock
+    if options[:recv_from_this] && source.sock
       @cxn.add_sock source.sock
     end
   end
@@ -168,9 +168,9 @@ class Call
 
       found_match =
         if type == :request
-          msg.type == :request and what == msg.method
+          msg.type == :request && what == msg.method
         else
-          msg.type == :response and what.to_s == msg.status_code
+          msg.type == :response && what.to_s == msg.status_code
         end
 
       if found_match
@@ -218,8 +218,7 @@ class Call
     rescue Timeout::Error
       raise "#{ @uri } timed out waiting for #{ code } (call ID #{ @cid })"
     end
-    unless msg.type == :response \
-      and Regexp.new(code) =~ msg.status_code
+    unless msg.type == :response && Regexp.new(code) =~ msg.status_code
       raise "Expected #{ code}, got #{msg.status_code || msg.method} (call ID #{ @cid })"
     end
 
@@ -315,7 +314,7 @@ class Call
 
   def send_something(msg, retrans)
     @cxn.send_msg(msg, @src)
-    if retrans and (@transport == "UDP") then
+    if retrans && @transport == "UDP"
       @retrans = true
       Thread.new do
         timer = @t1
