@@ -5,16 +5,20 @@ require 'system/getifaddrs'
 module Quaff
 
 module Utils #:nodoc:
-def Utils.local_ip
-  addrs = System.get_ifaddrs
-  if addrs.empty?
-    "0.0.0.0"
-  elsif (addrs.size == 1)
-    addrs[0][:inet_addr]
-  else
-    addrs.select {|k, v| k != :lo}.shift[1][:inet_addr]
+  @@local_ip= nil
+  def self.local_ip
+    if @@local_ip.nil?
+      addrs = System.get_ifaddrs
+      @@local_ip= if addrs.empty?
+        "0.0.0.0"
+      elsif (addrs.size == 1)
+        addrs[0][:inet_addr]
+      else
+        addrs.select {|k, v| k != :lo}.shift[1][:inet_addr]
+      end
+    end
+    @@local_ip
   end
-end
 
 def Utils.pid
     Process.pid
