@@ -62,15 +62,16 @@ module Quaff
     
     # Retrieves the next unhandled call for this endpoint and returns
     # a +Call+ object representing it
-    def incoming_call
-      begin
-        call_id = get_new_call_id
-      rescue Timeout::Error
+    def incoming_call(block: true)
+      call_id = get_new_call_id(block ? 30 : 0)
+      if call_id
+        puts "Call-Id for endpoint on #{@local_port} is #{call_id}" if @msg_trace
+        Call.new(self, call_id, @instance_id, @uri)
+      elsif block
         raise "#{ @uri } timed out waiting for new incoming call"
+      else
+        nil
       end
-
-      puts "Call-Id for endpoint on #{@local_port} is #{call_id}" if @msg_trace
-      Call.new(self, call_id, @instance_id, @uri)
     end
 
     # Creates a +Call+ object representing a new outbound call
@@ -238,19 +239,20 @@ module Quaff
       return call_id
     end
 
+    # time_limit = 0 => do not block
     def get_new_call_id time_limit=30
       time_spent= 0
-      while time_spent < time_limit
-        break if cid
+      cid=nil
+      loop do
         cid= begin
           @call_ids.deq(true)
         rescue ThreadError
           nil
         end
+        break if cid || time_spent >= time_limit
         sleep 0.1
         time_spent+= 0.1
       end
-      raise Timeout::Error if cid.nil?
       cid
     end
 
