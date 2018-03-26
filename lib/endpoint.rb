@@ -203,7 +203,11 @@ module Quaff
     def get_new_message(cid, time_limit=30) # :nodoc:
       time_spent= 0
       while time_spent < time_limit
-        msg= @messages[cid].deq(false)
+        msg= begin
+          @messages[cid].deq(true)
+        rescue ThreadError
+          nil
+        end
         break if msg
         sleep 0.1
         time_spent+= 0.1
@@ -237,8 +241,12 @@ module Quaff
     def get_new_call_id time_limit=30
       time_spent= 0
       while time_spent < time_limit
-        cid= @call_ids.deq(false)
         break if cid
+        cid= begin
+          @call_ids.deq(true)
+        rescue ThreadError
+          nil
+        end
         sleep 0.1
         time_spent+= 0.1
       end
