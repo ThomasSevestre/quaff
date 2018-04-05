@@ -240,12 +240,14 @@ class Call
   def send_response(code, phrase, body="", retrans=nil, headers={})
     method = nil
     msg = build_message headers, body, :response, method, code, phrase
-    send_something(msg, retrans)
+    send_something(msg.to_s, retrans)
+    msg
   end
 
   def send_request(method, body="", headers={})
     msg = build_message headers, body, :request, method
-    send_something(msg, nil)
+    send_something(msg.to_s, nil)
+    msg
   end
 
   def end_call
@@ -307,8 +309,7 @@ class Call
 
     defaults.merge! headers
 
-    SipMessage.new(method, code, phrase, @sip_destination, body, defaults.merge!(headers)).to_s
-
+    SipMessage.new(method, code, phrase, @sip_destination, body, defaults.merge!(headers))
   end
 
   def send_something(msg, retrans)
