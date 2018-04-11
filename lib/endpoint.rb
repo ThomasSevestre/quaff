@@ -170,9 +170,9 @@ module Quaff
     #
     # Returns the +Message+ representing the 200 OK, or throws an
     # exception on failure to authenticate successfully.
-    def register expires="3600"
-      @reg_call ||= outgoing_call(@uri)
-      auth_hdr = Quaff::Auth.gen_empty_auth_header @username
+    def register expires="3600", username=@username, password=@password, uri=@uri
+      @reg_call ||= outgoing_call(uri)
+      auth_hdr = Quaff::Auth.gen_empty_auth_header username
       @reg_call.update_branch
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
       response_data = @reg_call.recv_response("401|200")
@@ -180,12 +180,12 @@ module Quaff
         @algorithm = Quaff::Auth.get_algorithm(response_data.header("WWW-Authenticate"))
 
         if @algorithm == "AKAv1-MD5"
-          @password = calculate_akav1_password(response_data.header("WWW-Authenticate"))
+          password = calculate_akav1_password(response_data.header("WWW-Authenticate"))
         elsif @algorithm == "AKAv2-MD5"
-          @password = calculate_akav2_password(response_data.header("WWW-Authenticate"))
+          password = calculate_akav2_password(response_data.header("WWW-Authenticate"))
         end
 
-        auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), @username, @password, "REGISTER", @uri
+        auth_hdr = Quaff::Auth.gen_auth_header response_data.header("WWW-Authenticate"), username, password, "REGISTER", uri
         @reg_call.update_branch
         @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
         response_data = @reg_call.recv_response("200")
