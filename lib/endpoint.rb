@@ -75,10 +75,10 @@ module Quaff
     end
 
     # Creates a +Call+ object representing a new outbound call
-    def outgoing_call to_uri
+    def outgoing_call to_uri, from_uri: nil
       call_id = generate_call_id
       puts "Call-Id for endpoint on #{@local_port} is #{call_id}" if @msg_trace
-      Call.new(self, call_id, @instance_id, @uri, @outbound_connection, to_uri)
+      Call.new(self, call_id, @instance_id, from_uri || @uri, @outbound_connection, to_uri)
     end
 
     # Not yet ready for use
