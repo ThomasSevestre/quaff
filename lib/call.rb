@@ -265,6 +265,71 @@ class Call
     return TCPSource.new sock
   end
 
+  # handle classic SIP message flow to answer an incoming INVITE :
+  #   --> INVITE
+  #   <-- 100 Trying
+  #   <-- 180 Ringing
+  #   sleep
+  #   <-- 200 OK
+  #   --> ACK
+  def answer(delay: nil)
+    send_response(100, 'Trying')
+    send_response(180, 'Ringing')
+    sleep delay if delay
+    send_response(200, 'OK')
+    recv_request("ACK")
+  end
+
+  # reject incoming INVITE with given code and status
+  def reject(code, status)
+    send_response(100, 'Trying')
+    send_response(code, status)
+    end_call
+  end
+
+  # terminate call
+  def bye
+    send_request("BYE")
+    recv_response("200")
+    end_call
+  end
+
+  # handle classic SIP message flow after an outgoing INVITE :
+  # - receive optional 100, 180 and 183 messages
+  # - check transaction final response code and message
+  # - send ACK if needed
+  def wait_for_answer(status = [200, true], reason = nil)
+    code= if status.is_a?(Array) && status.first.is_a?(Integer)
+      status.first.to_s
+    elsif status.is_a?(Integer)
+      status.to_s
+    else
+      raise ArgumentError, "status should be a response"
+    end
+
+    loop do
+      msg= recv_any_of([100, 180, 183, status])
+      if msg.status_code == code
+        # check reason
+        if reason && msg.reason != reason
+          raise "got msg with reason '#{msg.reason}', expected '#{reason}'"
+        end
+        # auto ack 200
+        if code == "200"
+          send_request("ACK")
+        end
+        break
+      end
+    end
+  end
+
+  # wait for call termination
+  def wait_for_bye
+    recv_request("BYE", false)
+    send_response(200, 'OK')
+    end_call
+  end
+
   private
   def recv_something
     msg = @cxn.get_new_message @cid
