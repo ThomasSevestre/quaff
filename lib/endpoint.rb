@@ -74,6 +74,23 @@ module Quaff
       end
     end
 
+    # Retrieves the next unhandled call for any given endpoint and returns
+    # a +Call+ object representing it
+    #
+    # Usefull when calls are dispatched on several endpoints
+    def self.wait_for_incoming_call(endoints)
+      call= nil
+      loop do
+        endoints.each do |e|
+          call= e.incoming_call(block: false)
+          break if call
+        end
+        break if call
+        sleep 0.1
+      end
+      call
+    end
+
     # Creates a +Call+ object representing a new outbound call
     def outgoing_call to_uri, from_uri: nil
       call_id = generate_call_id
