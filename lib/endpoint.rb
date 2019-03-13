@@ -35,6 +35,34 @@ module Quaff
     def terminate_specific
     end
 
+    # Terminates given endpoints.
+    # This helper is aimed to be called at the end of each test
+    # It raises an error if something went wrong during the test
+    def self.terminate_endpoints(*endpoints)
+      endpoints.flatten!
+      begin
+        endpoints.each do |endpoint|
+          if endpoint.no_new_calls?
+            puts "DEBUGING remaining new calls :"
+            while ( call= endpoint.incoming_call(block: false) )
+              puts "--- #{call.cid}"
+            end
+
+            raise "trying to terminate an endpoint with new calls waiting"
+          end
+
+          if endpoint.retrans_count > 0
+            # usually a good sign that something is wrong
+            raise "terminating an endpoint with retransmitted message"
+          end
+        end
+      ensure
+        endpoints.each do |endpoint|
+          endpoint.terminate
+        end
+      end
+    end
+
     # Adds a socket connection to another UA - designed to be
     # overriden by per-transport subclasses
     def add_sock sock
