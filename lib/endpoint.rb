@@ -18,13 +18,6 @@ module Quaff
     attr_accessor :auto_answer_options
     attr_reader :msg_log, :local_port, :instance_id, :algorithm, :retrans_count
 
-    # Creates an SDP socket bound to an ephemeral port
-    def setup_sdp
-      @sdp_socket = UDPSocket.new
-      @sdp_socket.bind('0.0.0.0', 0)
-      @sdp_port = @sdp_socket.addr[1]
-    end
-
     def terminate
       @terminated = true
       terminate_specific
