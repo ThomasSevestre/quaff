@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'resolv'
 require 'socket'
 require 'system/getifaddrs'
@@ -33,7 +34,7 @@ def Utils.new_branch
 end
 
   def self.paramhash_to_str(params)
-    str= ""
+    str= String.new
     params.each do |k, v|
       str<< ( v == true ? ";#{k}" : ";#{k}=#{v}" )
     end

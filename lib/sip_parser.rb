@@ -1,4 +1,4 @@
-# -*- coding: us-ascii -*-
+# frozen_string_literal: true
 require 'digest/md5'
 require 'abnf'
 require_relative './message.rb'

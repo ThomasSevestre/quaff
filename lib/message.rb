@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 module Quaff
 class SipMessage
   attr_accessor :method, :requri, :reason, :status_code, :headers, :source
@@ -45,7 +46,7 @@ class SipMessage
   end
 
   def to_s
-    msg = ""
+    msg = String.new
     if type == :request
       msg << "#{@method} #{@requri} SIP/2.0\r\n"
     else

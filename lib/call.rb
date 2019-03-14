@@ -1,4 +1,4 @@
-# -*- coding: us-ascii -*-
+# frozen_string_literal: true
 require 'securerandom'
 require 'timeout'
 require_relative './utils.rb'
