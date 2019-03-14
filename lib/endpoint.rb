@@ -462,7 +462,7 @@ module Quaff
       @parser.parse_start
       msg = @parser.parse_from_io(StringIO.new(data))
       queue_msg msg, UDPSourceFromAddrinfo.new(addrinfo) unless msg.nil?
-    rescue Errno::EBADF, NoMethodError
+    rescue Errno::EBADF, NoMethodError, IOError
       raise unless @terminated
     end
   end
