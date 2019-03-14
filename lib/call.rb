@@ -180,9 +180,7 @@ class Call
 
     unless found_match
       if msg.type == :request
-        unless Regexp.new(method) =~ msg.method
-          raise "#{ @uri } received #{ msg.method } instead of #{ possible_messages } (call ID #{ @cid })"
-        end
+        raise "#{ @uri } received #{ msg.method } instead of #{ possible_messages } (call ID #{ @cid })"
       else
         raise "#{ @uri } received #{ msg.status_code } response instead of #{ possible_messages } (call ID #{ @cid })"
       end
