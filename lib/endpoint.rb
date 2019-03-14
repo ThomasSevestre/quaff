@@ -35,7 +35,7 @@ module Quaff
       endpoints.flatten!
       begin
         endpoints.each do |endpoint|
-          if endpoint.no_new_calls?
+          if endpoint.has_new_calls?
             puts "DEBUGING remaining new calls :"
             while ( call= endpoint.incoming_call(block: false) )
               puts "--- #{call.cid}"
@@ -264,8 +264,8 @@ module Quaff
       @dead_calls = @dead_calls.keep_if {|k, v| v > now}
     end
 
-    def no_new_calls?
-      return @call_ids.empty?
+    def has_new_calls?
+      !@call_ids.empty?
     end
 
     private
