@@ -210,7 +210,7 @@ module Quaff
     # Returns the +Message+ representing the 200 OK, or throws an
     # exception on failure to authenticate successfully.
     def register(expires="3600", username=@username, password=@password, uri=@uri)
-      @reg_call ||= outgoing_call(tu: uri)
+      @reg_call ||= outgoing_call(tu: uri, fu: uri)
       auth_hdr = Quaff::Auth.gen_empty_auth_header username
       @reg_call.update_branch
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
