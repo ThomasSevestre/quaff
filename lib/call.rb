@@ -27,12 +27,21 @@ module Quaff
 class Call
   attr_reader :cid, :last_To, :last_From, :sip_destination
 
+  # base on kamailio naming :
+  # fu : From URI
+  # fU : From URI username
+  # fd : From URI Domain
+  # fn : From display name
+  # tu : From URI
+  # tU : From URI username
+  # td : From URI Domain
+  # tn : From display name
   def initialize(cxn,
                  cid,
                  instance_id=nil,
-                 uri=nil,
                  destination=nil,
-                 target_uri=nil)
+                 fu: nil, fU: nil, fd: nil, fn: nil, tu: nil, tU: nil, td: nil, tn: nil
+                 )
     @cxn = cxn
     @destination = destination
     setdest(destination, recv_from_this: true) if destination
@@ -40,7 +49,7 @@ class Call
     @t1, @t2 = 0.5, 32
     @instance_id = instance_id
     @cid = cid
-    set_default_headers cid, uri, target_uri
+    set_default_headers(cid: cid, fu: fu, fU: fU, fd: fd, fn: fn, tu: tu, tU: tU, td: td, tn: tn)
   end
 
   # Changes the branch parameter if the Via header, creating a new transaction
@@ -395,15 +404,39 @@ class Call
     end
   end
 
-  def set_default_headers cid, uri, target_uri
+  # cid : Call id
+  def set_default_headers(cid:, fu: nil, fU: nil, fd: nil, fn: nil, tu: nil, tU: nil, td: nil, tn: nil)
+    if fu && ( fU || fd )
+      raise ArgumentError, "can't define fu and any of fU, fd or fn"
+    elsif fu.nil? && fU.nil? && fd.nil?
+      raise ArgumentError, "must define fu or fU and fd"
+    end
+    from_uri= "#{fu || "#{fU}@#{fd}"}"
+
+    if tu && ( tU || td )
+      raise ArgumentError, "can't define tu and any of tU, td or tn"
+    elsif tu
+      to_uri= tu
+    elsif tU && td
+      to_uri= "#{tU}@#{td}"
+    else
+      to_uri= nil
+    end
+
     @cseq_number = 1
-    @uri = uri
-    @last_From = "<#{uri}>;tag=" + generate_random_tag
+    @uri = from_uri
+
+    @last_From= String.new
+    @last_From<< "\"#{fn}\" " if fn
+    @last_From<< "<#{from_uri}>;tag=#{generate_random_tag}"
+
     @in_dialog = false
     @has_To_tag = false
     update_branch
-    @last_To = "<#{target_uri}>"
-    @sip_destination = target_uri
+    @last_To= String.new
+    @last_To<< "\"#{tn}\" " if tn
+    @last_To<< "<#{to_uri}>"
+    @sip_destination = to_uri
     @routeset = []
   end
 

@@ -87,7 +87,7 @@ module Quaff
       call_id = get_new_call_id(block ? 30 : 0)
       if call_id
         puts "Call-Id for endpoint on #{@local_port} is #{call_id}" if @msg_trace
-        Call.new(self, call_id, @instance_id, @uri)
+        Call.new(self, call_id, @instance_id, fu: @uri)
       elsif block
         raise "#{ @uri } timed out waiting for new incoming call"
       else
@@ -113,10 +113,11 @@ module Quaff
     end
 
     # Creates a +Call+ object representing a new outbound call
-    def outgoing_call to_uri, from_uri: nil
+    # See Call.new for params signification
+    def outgoing_call(fu: @uri, fU: nil, fd: nil, fn: nil, tu: nil, tU: nil, td: nil, tn: nil)
       call_id = generate_call_id
       puts "Call-Id for endpoint on #{@local_port} is #{call_id}" if @msg_trace
-      Call.new(self, call_id, @instance_id, from_uri || @uri, @outbound_connection, to_uri)
+      Call.new(self, call_id, @instance_id, @outbound_connection, fu: fu, fU: fU, fd: fd, fn: fn, tu: tu, tU: tU, td: td, tn: tn)
     end
 
     # Not yet ready for use
@@ -208,8 +209,8 @@ module Quaff
     #
     # Returns the +Message+ representing the 200 OK, or throws an
     # exception on failure to authenticate successfully.
-    def register expires="3600", username=@username, password=@password, uri=@uri
-      @reg_call ||= outgoing_call(uri)
+    def register(expires="3600", username=@username, password=@password, uri=@uri)
+      @reg_call ||= outgoing_call(tu: uri)
       auth_hdr = Quaff::Auth.gen_empty_auth_header username
       @reg_call.update_branch
       @reg_call.send_request("REGISTER", "", {"Authorization" =>  auth_hdr, "Expires" => expires.to_s})
@@ -346,7 +347,7 @@ module Quaff
         @messages[cid].enq(msg)
 
         if msg.method == "OPTIONS" && @auto_answer_options
-          call= Call.new(self, cid, @instance_id, @uri)
+          call= Call.new(self, cid, @instance_id, fu: @uri)
           call.recv_request("OPTIONS")
           call.send_response(200, "OK")
         end
