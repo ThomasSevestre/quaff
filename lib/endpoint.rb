@@ -46,7 +46,7 @@ module Quaff
 
           if endpoint.retrans_count > 0
             # usually a good sign that something is wrong
-            raise "terminating an endpoint with retransmitted message"
+            raise "terminating an endpoint with #{ endpoint.retrans_count } retransmitted message(s)"
           end
         end
       ensure
