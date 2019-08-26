@@ -411,14 +411,14 @@ class Call
     elsif fu.nil? && fU.nil? && fd.nil?
       raise ArgumentError, "must define fu or fU and fd"
     end
-    from_uri= "#{fu || "#{fU}@#{fd}"}"
+    from_uri= "#{fu || "sip:#{fU}@#{fd}"}"
 
     if tu && ( tU || td )
       raise ArgumentError, "can't define tu and any of tU, td or tn"
     elsif tu
       to_uri= tu
     elsif tU && td
-      to_uri= "#{tU}@#{td}"
+      to_uri= "sip:#{tU}@#{td}"
     else
       to_uri= nil
     end
