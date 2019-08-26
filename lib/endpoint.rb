@@ -120,18 +120,6 @@ module Quaff
       Call.new(self, call_id, @instance_id, @outbound_connection, fu: fu, fU: fU, fd: fd, fn: fn, tu: tu, tU: tU, td: td, tn: tn)
     end
 
-    # Not yet ready for use
-    def create_client(uri, username, password, outbound_proxy, outbound_port=5060) # :nodoc:
-    end
-
-    # Not yet ready for use
-    def create_server(uri, local_port=5060, outbound_proxy=nil, outbound_port=5060) # :nodoc:
-    end
-
-    # Not yet ready for use
-    def create_aka_client(uri, username, key, op, outbound_proxy, outbound_port=5060) # :nodoc:
-    end
-
     # Constructs a new endpoint
     # Params:
     # +uri+:: The SIP URI of this endpoint
